@@ -1,8 +1,9 @@
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timedelta
 
 from src.database.models import Contact
-from src.schemas import ContactSchema, ContactUpdateSchema
+from src.schemas import ContactSchema, ContactUpdateSchema, ContactSearchSchema
 
 
 async def get_contacts(limit: int, offset: int, db: AsyncSession):
@@ -57,3 +58,29 @@ async def remove_contact(contact_id: int, db: AsyncSession):
         await db.delete(contact)
         await db.commit()
     return contact
+
+
+
+async def search_contacts(search_params: ContactSearchSchema, db: AsyncSession):
+    sq = select(Contact)
+    if search_params.name:
+        sq = sq.filter(func.lower(Contact.first_name) ==
+                       func.lower(search_params.name))
+    if search_params.surname:
+        sq = sq.filter(func.lower(Contact.last_name) ==
+                       func.lower(search_params.surname))
+    if search_params.email:
+        sq = sq.filter(func.lower(Contact.email) ==
+                       func.lower(search_params.email))
+    contacts = await db.execute(sq)
+    return contacts.scalars().all()
+
+
+
+async def upcoming_birthdays(start_date: datetime, end_date: datetime, db: AsyncSession):
+    sq = select(Contact).filter(
+        func.date(Contact.birthday) >= start_date,
+        func.date(Contact.birthday) <= end_date
+    )
+    contacts = await db.execute(sq)
+    return contacts.scalars().all()

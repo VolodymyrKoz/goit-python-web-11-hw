@@ -1,12 +1,16 @@
 from typing import List
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends, status, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func
 
 from src.database.db import get_db
-from src.schemas import ContactResponse, ContactSchema, ContactUpdateSchema
+from src.schemas import (
+    ContactResponse, ContactSchema, ContactUpdateSchema,
+    ContactSearchSchema  
+)
 from src.repository import contacts as repository_contacts
-
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 
@@ -64,3 +68,22 @@ async def delete_contact(
             detail="NOT FOUND!",
         )
     return contact
+
+
+
+@router.get("/search/", response_model=List[ContactResponse])
+async def search_contacts(
+    search_params: ContactSearchSchema = Depends(),
+    db: AsyncSession = Depends(get_db)
+):
+    contacts = await repository_contacts.search_contacts(search_params, db)
+    return contacts
+
+
+
+@router.get("/birthdays/", response_model=List[ContactResponse])
+async def upcoming_birthdays(db: AsyncSession = Depends(get_db)):
+    start_date = datetime.now().date()
+    end_date = start_date + timedelta(days=7)
+    contacts = await repository_contacts.upcoming_birthdays(start_date, end_date, db)
+    return contacts
